@@ -1,3 +1,5 @@
+![image](https://user-images.githubusercontent.com/32418025/41813786-68a7ae74-7734-11e8-822b-3d56278ab60c.png)
+![image](https://user-images.githubusercontent.com/32418025/41813795-88e760a8-7734-11e8-82d2-15495ba78515.png)
 ![image](https://user-images.githubusercontent.com/32418025/41813755-91ddbe7e-7733-11e8-9a44-14414d453fdd.png)
 ![image](https://user-images.githubusercontent.com/32418025/41813756-a02022d8-7733-11e8-9652-600589369dd4.png)
 ![image](https://user-images.githubusercontent.com/32418025/41813758-aad2511a-7733-11e8-9d46-c23d62df2929.png)
@@ -7,4 +9,47 @@
 ![image](https://user-images.githubusercontent.com/32418025/41813767-e2c5e744-7733-11e8-8aa1-9e94b3c8b1a9.png)
 ![image](https://user-images.githubusercontent.com/32418025/41813775-10d7215c-7734-11e8-97c1-9990d6a02a88.png)
 ![image](https://user-images.githubusercontent.com/32418025/41813779-241ab30a-7734-11e8-95ac-2b70ae62c7dc.png)
-![image](https://user-images.githubusercontent.com/32418025/41813780-2e3cd412-7734-11e8-99c1-661e10646d20.png)
+![image](https://user-images.githubusercontent.com/32418025/41813799-a687c68e-7734-11e8-9d8d-d07d21caf8ca.png)
+![image](https://user-images.githubusercontent.com/32418025/41813804-b55ac5b2-7734-11e8-8479-0b35fa944765.png)
+![image](https://user-images.githubusercontent.com/32418025/41813807-c19da768-7734-11e8-864b-0126013ec67c.png)
+![image](https://user-images.githubusercontent.com/32418025/41813809-cde759a6-7734-11e8-9568-5573e2ba1782.png)
+![image](https://user-images.githubusercontent.com/32418025/41813811-dabbf4e8-7734-11e8-88fd-9cf0ec8f08de.png)
+![image](https://user-images.githubusercontent.com/32418025/41813813-f80e752a-7734-11e8-871d-fd5a3ad75e81.png)
+
+
+## Inference From Clustors:
+
+Final Number of Clusters = 11
+
+Cluster 1 - Related to god, church, people (Spiritual):
+The documents in this cluster is about articles related to God, christians, church and people’s beliefs.
+
+Cluster 2 - Earth and Space Science:
+This cluster is mainly about universe, space shuttle, and sapce missions. We can say that this cluster is related to earth and space science.
+
+Cluster 3 - News articles current affairs:
+This cluster is about current affairs like news articles.
+
+Cluster 4 - Games:
+This cluster mainly contains Games, play, teams, win and loose.
+
+Cluster 5 - Related to Israel, Palestanian and arabs:
+From the above word cloud we can see that this cluster contains text regarding Jewish people in Israel, palestatnian and arab countries.
+
+Cluster 6 - Muslims, Turkish, Russian and Bosnian war:
+This cluster is may be people or articles about bosnian war and involvement of Turkish, russians, americans in bosnian war etc.
+
+Cluster 7 - Files and Images computer softwares:
+This cluster is about files, png images computer softwares, versions etc.
+
+Cluster 8 - study of sexuality - morale:
+This cluster contains mainly about the articles about sexuality of the people Gay, homosexual, male, female etc.
+
+Cluster 9 - FBI, crime cases, guns, fire, government:
+This cluster contains articles about FBI cases, firearm, peoples rights, government related issues.
+
+Cluster 10 - Security NSA:
+This cluster contains mainly anbout like chips, clipper, key, encrypt and related to govenment or nsa i.e. security related issues.
+
+Cluster 11 - Computer components:
+This cluster contains electronic components like Drive, disk, floppy, memory cards etc.
