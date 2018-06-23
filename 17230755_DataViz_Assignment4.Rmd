@@ -1,0 +1,607 @@
+---
+title: "Data Visualization Assignment 4"
+author: "Swaroop - 17230755"
+date: "19 April 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Overview:
+The given corpus contains 19 sub corpus and corresponding documents - the sub corpus are - aa, comwm, cship, csmh, cwx, ra, rm, rsb, rsh, sc, se, sm, src, ss, tpg, tpm, tpmi, trm. Each of these contains set of documents which with specfic ids to each document i.e aa corpus - contains documents from 1-319.
+Initial investigation of the document reveals that, all documents is a kind of letter, which contains From, To, subject and Organization. Hence, these can be considered as stop words and need to be removed.
+
+The main objective of this assignment is inform reader/Data Scientist as to the topic composition in the corpus.
+
+### Approach:
+<li>First exploring the corpus - corpus statistics.</li>
+<li>Cleaning the corpus - removal of stop words.</li>
+<li>Tried with k-means clustering technique.</li>
+<li>Selecting the k in k-means using elbow method.</li>
+<li>Tried with hierarchical clustering.</li>
+<li>Selecting the optimal height or clusters in hierarchical clustering.</li>
+<li>Visualising the words in each clusters - word corpus.</li>
+<li>Few more visualisations.</li>
+
+Importing all necessary libraries.
+
+```{r libr, cache=FALSE, warning=FALSE, message=FALSE, comment=FALSE, warning=FALSE}
+# Importing all necessary libraries.
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(ggplot2)
+library(ggdendro)
+library(dplyr)
+library(cluster)
+library(HSAUR)
+library(fpc)
+library(skmeans)
+library(plyr)
+library(ggplot2)
+library(gplots)
+library(stats)
+library(philentropy)
+library(networkD3)
+library(ape)
+library(RColorBrewer)
+library(wesanderson)
+library(wordcloud2)
+library(treemapify)
+```
+
+### Data Pre Preocessing:
+
+This includes - removing stop words, converting all words to lowercase, removing punctuations, removing special characters and stemming. In addition, I included subject, lines, from, To, can, will, get, use as stop words because every document contains the words like subject, to and from (No differentiating power) which is removed while plotting word cloud.
+
+Taking a sample of 25%
+
+```{r preprocessing, echo=TRUE, message=FALSE, warning=FALSE}
+n <- 19
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+
+corpus1 <- VCorpus(DirSource("corpus_n_topics3", recursive = TRUE, encoding = "UTF-8"), 
+                  readerControl = list(language = "eng"))
+
+# Cleaning the corpus..
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+corpus1 <- tm_map(corpus1, toSpace, "/")
+corpus1 <- tm_map(corpus1, toSpace, "/.")
+corpus1 <- tm_map(corpus1, toSpace, "@")
+corpus1 <- tm_map(corpus1, toSpace, "\\|")
+
+# Converting all text to lower case. removing stop words and punctuations
+corpus1 <- tm_map(corpus1, content_transformer(tolower))
+corpus1 <- tm_map(corpus1, removeWords, stopwords("english"))
+corpus1 <- tm_map(corpus1, removePunctuation)
+
+# Remove numbers, letters and stemming
+corpus1 <- tm_map(corpus1, removeNumbers)
+corpus1 <- tm_map(corpus1, removeWords, c(letters)) 
+corpus1 <- tm_map(corpus1, stemDocument)
+
+# Document Term Matrix and sparsity
+corpus1.dtm <- DocumentTermMatrix(corpus1, control = list(weighting = function(x) 
+  weightTfIdf(x, normalize = TRUE)))
+corpus1.dtm<-removeSparseTerms(corpus1.dtm, 0.999)
+corpus1.dtm.mat <- corpus1.dtm %>% as.matrix()
+corpus1.dtm.mat <- corpus1.dtm.mat[rowSums(corpus1.dtm.mat^2) !=0,]
+
+
+# Taking sample from corpus:
+percent = 35
+set.seed(300)
+sample_size = nrow(corpus1.dtm.mat) * percent/100
+corpus1.dtm.mat.sample <- corpus1.dtm.mat[sample(1:nrow(corpus1.dtm.mat), 
+                                                sample_size, replace=FALSE),]
+```
+
+### Exploring Corpus and K means clustering:
+At this stage, intially applied k mean clustering for k=3 and the dataframe obtained from this becomes easy to plot corpus statistics. Moreover, we need to find the value for K, this can be obtained from elbow method - i.e clear elbow sign, where there is drastic decrease in group sum of square distance error and after that the decrease in distance becomes almost constant. However, for given data set it is observed that there is no clear decrease in squared distance for 20  clusters. Moreover, as we increase the number of clusters, no of words in the cluster also decreases. - hence different types of clusting technique need to be implemented. 
+
+In addition, we need to group the documents into sub corpus which is done by taking document id. eg: document 1 to 319 belong to sub corpus "aa". Similarly for others. This helps in indentifying how many documents pressent in each sub corpus.
+
+Trying to find best K in k means clustering (Unsupervised Learning):
+Inference: From the below plot we can infer that no clear sign of elbow to select value of k till 20 clusters (and squared distance is still decreasing after that, this process consumes lot of time to run).
+
+#### Elbow Method k-means:
+```{r kmeans, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+# Finding Number of clusters to be selected:
+wss <- 0
+for (i in 1:20){
+  km.out <- kmeans(corpus1.dtm.mat.sample, i)
+  wss[i] <- km.out$tot.withinss
+}
+
+
+ggplot()+geom_point(aes(x=1:20, y=wss), colour="blue")+
+  geom_line(aes(x=1:20, y=wss),linetype="dashed", colour="blue")+
+  ggtitle("Error vs No of Clusters (Elbow Method)")+xlab("No of Clusters")+
+  ylab("Group Sum of Squares")+
+  theme(panel.grid.major = element_blank(), 
+        #panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(hjust=1, vjust = .5), 
+        legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title=element_text(size=10, face = "bold"))
+#plot(1:10, wss, type = "b", 
+     #xlab = "Number of Clusters", 
+     #ylab = "Within groups sum of squares")
+
+
+corpus1.dtm.mat.sample.skm <- skmeans(corpus1.dtm.mat.sample,3, method='genetic')
+
+corpus1.dtm.mat.sample.skm <- as.data.frame(corpus1.dtm.mat.sample.skm$cluster)  
+colnames(corpus1.dtm.mat.sample.skm) = c("cluster")
+corpus1.dtm.mat.sample.skm$docs <- rownames(corpus1.dtm.mat.sample.skm)
+
+corpus1.dtm.mat.sample.skm$docs<-lapply(corpus1.dtm.mat.sample.skm$docs, function(x) gsub("doc", "", x))
+corpus1.dtm.mat.sample.skm$docs <- unlist(corpus1.dtm.mat.sample.skm$docs)
+
+# Not necessry - k means consumes lot of time hence as a backup.
+x = corpus1.dtm.mat.sample.skm$docs
+corpus1.dtm.mat.sample.skm$docs <- as.numeric(x)
+
+
+library(dplyr)
+corpus1.dtm.mat.sample.skm <- corpus1.dtm.mat.sample.skm %>% 
+  mutate(doc = case_when(
+    .$docs >= 1 & .$docs <= 319 ~ "aa",
+    .$docs >= 320 & .$docs <= 708 ~ "cg",
+    .$docs >= 709 & .$docs <= 1102 ~ "comwm",
+    .$docs >= 1103 & .$docs <= 1494 ~ "cship",
+    .$docs >= 1495 & .$docs <= 1879 ~ "csmh",
+    .$docs >= 1880 & .$docs <= 2274 ~ "cwx",
+    .$docs >= 2275 & .$docs <= 2670 ~ "ra",
+    .$docs >= 2671 & .$docs <= 3068 ~ "rm",
+    .$docs >= 3069 & .$docs <= 3465 ~ "rsb",
+    .$docs >= 3466 & .$docs <= 3864 ~ "rsh",
+    .$docs >= 3865 & .$docs <= 4260 ~ "sc",
+    .$docs >= 4261 & .$docs <= 4653 ~ "se",
+    .$docs >= 4654 & .$docs <= 5049 ~ "sm",
+    .$docs >= 5050 & .$docs <= 5447 ~ "src",
+    .$docs >= 5448 & .$docs <= 5841 ~ "ss",
+    .$docs >= 5842 & .$docs <= 6205 ~ "tpg",
+    .$docs >= 6206 & .$docs <= 6581 ~ "tpm",
+    .$docs >= 6582 & .$docs <= 6891 ~ "tpmi",
+    .$docs >= 6892 & .$docs <= 7142 ~ "trm"
+)
+)
+
+corpus1.dtm.mat.sample.skm <- corpus1.dtm.mat.sample.skm[, -2]
+
+
+
+corpus1.dtm.mat.sample.skm.table <-table(corpus1.dtm.mat.sample.skm$cluster, corpus1.dtm.mat.sample.skm$doc)
+
+
+corpus1.dtm.mat.sample.skm.table <-as.data.frame.table(corpus1.dtm.mat.sample.skm.table)
+
+```
+
+#### Corpus Statistics:
+Below bar plot gives information about number of documents in each sub corpus of a taken sample and original corpus. In original corpus "comwm" has highest number of documents and "trm" has lowest number of documents. In addition, from the sample statistics of 25% of original document set, we can observe that "tpm" has highest number of documents near to 150 and courpus "trm" has lowest number of documents.
+```{r docstatistics, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+cp.li <- c("aa", "cg", "comwm", "cship", "csmh", "cwx", "ra", "rm", "rsb", "rsh", "sc", "se", "sm", "src", "ss", "tpg", "tpm", "tpmi", "trm")
+doc.counts <- c((319-1+1), (708-320+1), (1102-109+1), (1494-1103+1), (1879-1495+1),(2274-1880+1), (2670-2275+1), (3068-2671+1), (3465-3069+1), (3864-3466+1), (4260-3865+1), (4653-4261+1), (5049-4654+1),(5447-5050+1), (5841-5448+1), (6205-5842+1), (6581-5842+1), (6891-6582+1), (7142-6892+1))
+stat <- data.frame(cp=cp.li, cnt=doc.counts)
+
+
+ggplot(data=stat, aes(x=cp, y=cnt))+geom_bar(width = 0.7, stat="identity", 
+                                         fill = "#f03b20", color="black")+
+  xlab("Corpus")+
+  ylab("No of Dcuments")+
+  ggtitle("Corpus Statistics")+
+  theme(panel.grid.major = element_blank(), 
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(angle = 30, hjust=1, vjust = .5),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.title = element_text(color="black", face="bold", size=12))+
+  coord_flip()
+
+library(dplyr)
+dt <- corpus1.dtm.mat.sample.skm.table %>% dplyr::group_by(Var2) %>%
+  dplyr::summarise(Freq = sum(Freq))
+
+h <- ggplot(dt, aes(x=Var2, y=Freq))+geom_bar(width = 0.7, stat="identity", 
+                                         fill = "#3182bd", color="black")+
+  xlab("Corpus")+
+  ylab("No of Dcuments")+
+  ggtitle("25% Sample Corpus Statistics")+
+  theme(panel.grid.major = element_blank(), 
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(angle = 30, hjust=1, vjust = .5),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.title = element_text(color="black", face="bold", size=12))+
+  coord_flip()
+
+h
+```
+
+#### Cluster composition for k=3:
+Since, there is no clear indication of k, exploring the data and looking how the cluster is formed within documents for k=3.
+
+From the below word cloud we can see that, K=3 dosent fit well. All 3 clusters contains mixed words related to different areas. In addition, we can predict that for the large document collection k amy be more than 3.This is also supported by elbow method.
+
+Word cloud corresponding to 3 clusters and its frequency bar plot is plotted below.
+
+```{r km, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+corpus1.tdm <- TermDocumentMatrix(corpus1, control = 
+                                   list(weighting = function(x) weightTf(x)))
+corpus1.tdm<-removeSparseTerms(corpus1.tdm, 0.999)
+corpus1.tdm.sample <- corpus1.tdm[, rownames(corpus1.dtm.mat.sample)]
+corpus1.tdm.sample.mat <- corpus1.tdm.sample %>% as.matrix()
+
+m<- length(unique(corpus1.dtm.mat.sample.skm$cluster))
+set.seed(99)
+par(mfrow=c(m,2))
+
+
+for (i in 1:m) {
+  stp.words <- c("can", "will", "get", "line", "use", "organ", "subject", 'lines', 'organization')
+  
+  #the documents in  cluster i
+  cluster_doc_ids <-which(corpus1.dtm.mat.sample.skm$cluster==i)
+  
+  #the subset of the matrix with these documents
+  corpus1.tdm.sample.mat.cluster<- corpus1.tdm.sample.mat[, cluster_doc_ids]
+  
+  # sort the terms by frequency for the documents in this cluster
+  v <- sort(rowSums(corpus1.tdm.sample.mat.cluster),decreasing=TRUE)
+  d <- data.frame(word = names(v),freq=v)
+  rw_nm <- setdiff(rownames(d), stp.words)
+  d <- d[rw_nm, ]
+  
+  # call word cloud function
+  wordcloud(words = d$word, freq = d$freq, scale=c(3,.1), min.freq = 1,
+            max.words=200, random.order=FALSE, rot.per=0.35, 
+            colors=c('#f2f0f7','#cbc9e2','#9e9ac8','#756bb1','#54278f'))
+  title(paste("cluster", i))
+  
+  
+  barplot(d[1:10,]$freq, las = 1, names.arg = d[1:10,]$word,
+          col ="lightblue", main =paste("Most frequent words - Cluster ", i),
+          ylab = "Word frequencies", width = 0.05, border = "red", las=2)
+}
+g<- ggplot(corpus1.dtm.mat.sample.skm.table, aes(x=Var1, y=Freq,fill=Var2))
+g<- g + geom_bar(width = 0.5, stat="identity", alpha=0.9) +
+  xlab("Cluster Numbers") +
+  ylab("Frequency") + 
+  ggtitle("Cluster Compositions")+
+  scale_fill_manual(name = "Documents",values = col_vector)+
+  guides(fill=guide_legend(title="Documents"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(angle = 30, hjust=1, vjust = .5), 
+        legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.title = element_text(color="black", face="bold", size=12))
+
+g
+```
+
+### Hierarchical Clustering and selecting the optimum height:
+Since k means is not suitable for the given corpus - proceeding with the hierarchical clustering.
+
+Selected height is 3.8 which comes to 11 clusters. As we go down the tree we can get more number of clusters. However, the number of documents also decreasess. Hence we need to select the reasonable clusters for a taken sample of 25%.
+
+Moreover, we can take 19 clusters same as the number of sub corpus but there is no strong evidence to consider 19 clusters (from kmeans elbow method). Furthermore, 11 clusters divides the given corpus into reasonable clusters which can be observed and validated from word cloud.
+
+```{r hirerachy, echo=TRUE, message=FALSE, warning=FALSE, fig.width = 5, fig.height = 5, fig.align = 'center'}
+sim_matrix<-distance(corpus1.dtm.mat.sample, method = "cosine")
+colnames(sim_matrix) <- rownames(corpus1.dtm.mat.sample)
+rownames(sim_matrix) <- rownames(corpus1.dtm.mat.sample)
+
+dist_matrix <- as.dist(1-sim_matrix)
+
+corpus.dtm.sample.dend <- hclust(dist_matrix, method = "ward.D") 
+
+set.seed(99)
+plot(corpus.dtm.sample.dend, hang= -1, labels = FALSE,  main = "Cluster dendrogram", sub = NULL, xlab = NULL, ylab = "Height")
+# here rect.hclust creates  rectangles around the dendogram for k number of clusters
+rect.hclust(corpus.dtm.sample.dend, h = 3.8, border = "red")
+
+
+plot(corpus.dtm.sample.dend, hang= -1, labels = FALSE,  main = "Cluster dendrogram", sub = NULL, xlab = NULL, ylab = "Height")
+# here rect.hclust creates a rectangles around the clusters existing at a given height, h
+rect.hclust(corpus.dtm.sample.dend, k = 11, border = "red")
+
+
+
+dendroNetwork(corpus.dtm.sample.dend, height = 800, width = 600, fontSize = 7, linkColour = "#d95f0e", nodeColour = "#fff", nodeStroke = "#d95f0e",
+              textColour = c("#2ca25f", "#8856a7", "Red", "#e34a33", "#dd1c77", "#2c7fb8",
+                             "#fff7bc", "#bcbddc", "#fee6ce", "#bdbdbd", "#a6bddb")
+              [cutree(corpus.dtm.sample.dend, 11)], textOpacity = 0.5, textRotate = NULL,
+              opacity = 0.9, margins = NULL, linkType = c("elbow", "diagonal"),
+              treeOrientation = c("vertical", "horizontal"), zoom = TRUE)
+
+
+
+colors = c("#2ca25f", "#8856a7", "Red", "#e34a33", "#dd1c77", "#2c7fb8",
+           "#fff7bc", "#bcbddc", "#fee6ce", "#bdbdbd", "#a6bddb")
+clus = cutree(corpus.dtm.sample.dend, 10)
+plot(as.phylo(corpus.dtm.sample.dend),  type = "fan", tip.color = colors[clus],
+     label.offset = 0.1, cex = 0.5)
+```
+
+### Final Clusters Selected (k=11):
+
+Before proceeding with the word cloud we will have a quick look at high frequency words in different sub corpus. To do this first we need to remove the stop words like Subject, From, To, Line, Organization etc from the words collection because these high frequency words contains in all the documents and dosent help in differentiating the clusters.
+
+Then cut the tree for k=11 and plotting the word clouds.
+
+```{r wd, echo=TRUE, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 6, fig.align = 'center'}
+k=11
+corpus.dtm.sample.dend.cut <- cutree(corpus.dtm.sample.dend, k=k)
+m <- length(unique(corpus.dtm.sample.dend.cut))
+
+corpus.dtm.sample.dend.cut <- as.data.frame(corpus.dtm.sample.dend.cut)
+colnames(corpus.dtm.sample.dend.cut) = c("cluster")
+
+corpus.dtm.sample.dend.cut$docs <- rownames(corpus.dtm.sample.dend.cut)
+
+
+corpus.dtm.sample.dend.cut$docs<-lapply(corpus.dtm.sample.dend.cut$docs, function(x) gsub("doc", "", x))
+corpus.dtm.sample.dend.cut$docs <- unlist(corpus.dtm.sample.dend.cut$docs)
+
+x = corpus.dtm.sample.dend.cut$docs
+
+corpus.dtm.sample.dend.cut$docs <- as.numeric(x)
+
+
+
+library(dplyr)
+corpus.dtm.sample.dend.cut <- corpus.dtm.sample.dend.cut %>% 
+  mutate(doc = case_when(
+    .$docs >= 1 & .$docs <= 319 ~ "aa",
+    .$docs >= 320 & .$docs <= 708 ~ "cg",
+    .$docs >= 709 & .$docs <= 1102 ~ "comwm",
+    .$docs >= 1103 & .$docs <= 1494 ~ "cship",
+    .$docs >= 1495 & .$docs <= 1879 ~ "csmh",
+    .$docs >= 1880 & .$docs <= 2274 ~ "cwx",
+    .$docs >= 2275 & .$docs <= 2670 ~ "ra",
+    .$docs >= 2671 & .$docs <= 3068 ~ "rm",
+    .$docs >= 3069 & .$docs <= 3465 ~ "rsb",
+    .$docs >= 3466 & .$docs <= 3864 ~ "rsh",
+    .$docs >= 3865 & .$docs <= 4260 ~ "sc",
+    .$docs >= 4261 & .$docs <= 4653 ~ "se",
+    .$docs >= 4654 & .$docs <= 5049 ~ "sm",
+    .$docs >= 5050 & .$docs <= 5447 ~ "src",
+    .$docs >= 5448 & .$docs <= 5841 ~ "ss",
+    .$docs >= 5842 & .$docs <= 6205 ~ "tpg",
+    .$docs >= 6206 & .$docs <= 6581 ~ "tpm",
+    .$docs >= 6582 & .$docs <= 6891 ~ "tpmi",
+    .$docs >= 6892 & .$docs <= 7142 ~ "trm"
+  )
+  )
+
+corpus.dtm.sample.dend.cut <- corpus.dtm.sample.dend.cut[, -2]
+corpus.dtm.sample.dend.cut.table <-table(corpus.dtm.sample.dend.cut$cluster, corpus.dtm.sample.dend.cut$doc)
+
+
+par(mfrow=c(5,4))
+l <- unique(corpus.dtm.sample.dend.cut$doc)
+t.words <- NULL
+for (i in 1:length(l)){
+  stp.words <- c("can", "will", "get", "line", "use", "organ", "subject", "from", "to", 'lines', 'organization')
+  id <-which(corpus.dtm.sample.dend.cut$doc==l[i])
+  pop.words.mat <- corpus1.tdm.sample.mat[, id]
+  pop.words <- sort(rowSums(pop.words.mat),decreasing=TRUE)
+  wd <- data.frame(word = names(pop.words),freq=pop.words)
+  rw_nm <- setdiff(rownames(wd), stp.words)
+  wd <- wd[rw_nm, ]
+  wd$source <- l[i]
+  t.words <- rbind(t.words, wd[1:10, ])
+}
+
+
+subset1 <- t.words[t.words$source %in% c("rsh", "cg", "csmh", "tpmi", "rm", "sc", "se", "ra", "comwm"), ]
+ggplot(subset1, aes(x=word, y=freq, fill=source))+geom_bar(stat="identity", width = 0.4)+
+  facet_wrap(~source, scales = "free")+
+  ggtitle("Most frequent words in corpus")+
+  xlab("Words")+
+  ylab("Frequency")+
+  theme(panel.grid.major = element_blank(), 
+        #panel.background = element_blank(), 
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(angle = 90, hjust=1, vjust = .5), 
+        legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title=element_text(size=10, face = "bold"))+
+  guides(fill=guide_legend(title="Corpus"))
+
+
+subset2 <- t.words[t.words$source %in% c("ss", "cwx", "src", "aa", "cship", "tpm", "rsb", "tpg", "trm"), ]
+ggplot(subset2, aes(x=word, y=freq, fill=source))+
+  geom_bar(stat="identity", width = 0.4)+
+  facet_wrap(~source, scales = "free")+
+  ggtitle("Most frequent words in corpus")+
+  xlab("Words")+
+  ylab("Frequency")+
+  scale_fill_brewer(palette="Set1")+
+  theme(panel.grid.major = element_blank(), 
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(angle = 90, hjust=1, vjust = .5), 
+        legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title=element_text(size=10, face = "bold"))+
+  guides(fill=guide_legend(title="Corpus"))
+
+```
+
+### Cluster Composition, confusion matrix and word clouds:
+
+From word clouds, we can see all the clusters word cloud is reasonably well which covers different areas of the documents. Further, explanation on clusters is given in Inference from clusters section. 
+
+```{r cl, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+#displays the confusion matrix
+corpus.dtm.sample.dend.cut.table
+corpus.dtm.sample.dend.cut.table <-as.data.frame.table(corpus.dtm.sample.dend.cut.table)
+
+# plot stacked bar graph to show cluster compositions
+g<- ggplot(corpus.dtm.sample.dend.cut.table, aes(x=Var1, y=Freq, fill=Var2))
+g<- g + geom_bar(stat="identity", width = 0.7, alpha=0.9) +
+  xlab("Cluster IDs") +
+  ylab("Frequency") + 
+  ggtitle("Cluster Compositions")+
+  scale_fill_manual(name = "Documents",values = col_vector)+
+  guides(fill=guide_legend(title="Corpus"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.background = element_blank(),
+        legend.title = element_text(colour="black", size=16, face="bold"),
+        axis.line = element_line(colour = "black", size = 0.25),  
+        axis.text.x = element_text(angle = 30, hjust=1, vjust = .5), 
+        legend.key = element_rect(fill = NA, colour = NA, size = 0.25),
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+g
+```
+
+```{r a, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+
+m <- length(unique(corpus.dtm.sample.dend.cut$cluster))
+set.seed(1478)
+par(mfrow=c(4,3))
+
+# for each cluster plot an explanatory word cloud
+for (i in 1:m) {
+  stp.words <- c("can", "will", "get", "line", "use", "organ", "subject", 'lines', 'organization')
+  #the documents in  cluster i
+  cut_doc_ids <-which(corpus.dtm.sample.dend.cut$cluster==i)
+  
+  #the subset of the matrix with these documents
+  corpus.tdm.sample.mat.cluster<- corpus1.tdm.sample.mat[, cut_doc_ids]
+  
+  # sort the terms by frequency for the documents in this cluster
+  v <- sort(rowSums(corpus.tdm.sample.mat.cluster),decreasing=TRUE)
+  d <- data.frame(word = names(v),freq=v)
+  rw_nm <- setdiff(rownames(d), stp.words)
+  d <- d[rw_nm, ]
+  # call word cloud function
+  word.cloud.dt <- data.frame(words=d$word, Freq=d$freq)
+  #wordcloud2(word.cloud.dt, size=1, color='random_dark', #backgroundColor="#bdbdbd")
+  
+  wordcloud(words = d$word, freq = d$freq, scale=c(5,.5), min.freq = 5,
+            max.words=100, random.order=FALSE, rot.per=0.7, 
+            colors=wes_palette("Darjeeling"))
+  title(main = paste("num clusters  = ", k, "; cluster", i), outer = FALSE)
+}
+```
+
+```{r b, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+
+# number of terms per cluster to show
+n <-20
+#intialise an empty data frame fields initiliased with empty vectors
+df <- data.frame(word=character(), freq = double(),cluster = integer())
+# for each cluster plot an explanatory word cloud
+for (i in 1:m) {
+  stp.words <- c("can", "will", "get", "line", "use", "organ", "subject", 'lines', 'organization')
+  #the documents in  cluster i
+  cut_doc_ids <-which(corpus.dtm.sample.dend.cut$cluster==i)
+  
+  #the subset of the matrix with these documents
+  corpus.tdm.sample.mat.cluster<- corpus1.tdm.sample.mat[, cut_doc_ids]
+  
+  # sort the terms by frequency for the documents in this cluster
+  v <- sort(rowSums(corpus.tdm.sample.mat.cluster),decreasing=TRUE)
+  d <- data.frame(word = names(v),freq=v, cluster=i)
+  rw_nm <- setdiff(rownames(d), stp.words)
+  d <- d[rw_nm, ]
+  
+  # we might want scale so that high frequencies in large cluster don't predominate
+  d[,2] <- scale(d[,2],center=FALSE, scale=TRUE)
+  
+  # take first n values only
+  d <-d[1:n,]
+  
+  #bind the data for this cluster to the df data frame created earlier
+  df<- rbind(df,d)
+}
+# the geom_treemap seems to only like vectors of values
+df$freq <- as.vector(df$freq)
+
+# simple function to rename the values in the cluster column as "cluster 1, cluster 2, etc"
+clust_name<-function(x){
+  paste("cluster", x)
+}
+
+# apply the function to the 'cluster' column
+df$cluster<- as.character(apply(df["cluster"], MARGIN = 2,FUN =clust_name ))
+gg<- ggplot(df, aes(area = freq, fill = freq, subgroup=cluster, label = word)) +
+  geom_treemap() +
+  geom_treemap_text(grow = T, reflow = T, colour = "black") +
+  facet_wrap( ~ cluster) +
+  scale_fill_gradientn(colours = rainbow(n, s = 1, v = 1, start = 0, end = max(1, n - 1)/n, alpha = 1))+
+  theme(legend.position = "bottom",
+        strip.text.x = element_text(size = 8, colour = "black", face="bold"),
+        plot.title = element_text(hjust = 0.5, face = "bold") )+
+  labs(title = "The Most Frequent Terms in Each Cluster", 
+       caption = "The area of each term is proportional to 
+       its relative frequency within cluster")
+
+gg
+
+```
+
+### Cluster Composition Sunburst:
+Sunbusrt gives the clear idea of number of clusters and how many number of documents within a sub corpus for a given cluster. Note: the number of documnets within each subcorpus is displayed as percentage.
+
+```{r sn, echo=TRUE, message=FALSE, warning=FALSE, fig.align = 'center'}
+library(sunburstR)
+cl <- corpus.dtm.sample.dend.cut
+# Preparing the data set which is suitable to give to sunburts.
+cl$doc_id <- rownames(cl)
+cl$cluster <- paste("Cluster", cl$cluster, sep="-")
+gp <- cl %>% dplyr::group_by(cluster, doc) %>% dplyr::summarize(cnt = n())
+gp$seq <- do.call(paste, c(gp[c("cluster", "doc")], sep = "-"))
+sun <- gp[ ,c("seq", "cnt")]
+sunburst(sun, count=TRUE, withD3 = TRUE)
+
+```
+
+### Inference From Clustors:
+
+Final Number of Clusters = 11
+
+##### Cluster 1 - Related to god, church, people (Spiritual):
+The documents in this cluster is about articles related to God, christians, church and people's beliefs.
+
+##### Cluster 2 - Earth and Space Science:
+This cluster is mainly about universe, space shuttle, and sapce missions. We can say that this cluster is related to earth and space science.
+
+##### Cluster 3 - News articles current affairs:
+This cluster is about current affairs like news articles.
+
+##### Cluster 4 - Games:
+This cluster mainly contains Games, play, teams, win and loose.
+
+##### Cluster 5 - Related to Israel, Palestanian and arabs:
+From the above word cloud we can see that this cluster contains text regarding Jewish people in Israel, palestatnian and arab countries.
+
+##### Cluster 6 - Muslims, Turkish, Russian and Bosnian war:
+This cluster is may be people or articles about bosnian war and involvement of Turkish, russians, americans in bosnian war etc.
+
+##### Cluster 7 -  Files and Images computer softwares:
+This cluster is about files, png images computer softwares, versions etc.
+
+##### Cluster 8 - study of sexuality - morale:
+This cluster contains mainly about the articles about sexuality of the people Gay, homosexual, male, female etc.
+
+##### Cluster 9 - FBI, crime cases, guns, fire, government:
+This cluster contains articles about FBI cases, firearm, peoples rights, government related issues.
+
+##### Cluster 10 - Security NSA:
+This cluster contains mainly anbout like chips, clipper, key, encrypt and related to govenment or nsa i.e. security related issues.
+
+##### Cluster 11 - Computer components:
+This cluster contains electronic components like Drive, disk, floppy, memory cards etc.
+
